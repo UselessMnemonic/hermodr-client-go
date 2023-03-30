@@ -27,12 +27,12 @@ func (provider *HermodrClient) Close() error {
 
 func (provider *HermodrClient) Receive() (Packet, error) {
 	headerBuffer := [12]byte{}
-	n, err := io.ReadFull(provider.conn, headerBuffer[:])
+	actual, err := io.ReadFull(provider.conn, headerBuffer[:])
 	if err != nil {
 		return Packet{}, err
 	}
-	if n != len(headerBuffer) {
-		return Packet{}, fmt.Errorf("expected %d bytes but got %d", len(headerBuffer), n)
+	if actual != len(headerBuffer) {
+		return Packet{}, fmt.Errorf("expected %d bytes but got %d", len(headerBuffer), actual)
 	}
 
 	response := Packet{}
@@ -40,12 +40,12 @@ func (provider *HermodrClient) Receive() (Packet, error) {
 	response.Op = int32(binary.BigEndian.Uint32(headerBuffer[4:8]))
 	payloadLen := int32(binary.BigEndian.Uint32(headerBuffer[8:12]))
 	response.Payload = make([]byte, payloadLen)
-	n, err = io.ReadFull(provider.conn, response.Payload)
+	actual, err = io.ReadFull(provider.conn, response.Payload)
 	if err != nil {
 		return Packet{}, err
 	}
-	if n != len(response.Payload) {
-		return Packet{}, fmt.Errorf("expected %d bytes but got %d", len(headerBuffer), n)
+	if actual != int(payloadLen) {
+		return Packet{}, fmt.Errorf("expected %d bytes but got %d", payloadLen, actual)
 	}
 	return response, nil
 }
@@ -55,20 +55,20 @@ func (provider *HermodrClient) Send(request Packet) error {
 	binary.BigEndian.PutUint32(headerBuffer[0:4], uint32(request.Id))
 	binary.BigEndian.PutUint32(headerBuffer[4:8], uint32(request.Op))
 	binary.BigEndian.PutUint32(headerBuffer[8:12], uint32(len(request.Payload)))
-	n, err := provider.conn.Write(headerBuffer[:])
+	actual, err := provider.conn.Write(headerBuffer[:])
 	if err != nil {
 		return err
 	}
-	if n != len(headerBuffer) {
-		return fmt.Errorf("had %d bytes but sent %d", len(headerBuffer), n)
+	if actual != len(headerBuffer) {
+		return fmt.Errorf("had %d bytes but sent %d", len(headerBuffer), actual)
 	}
 
-	n, err = provider.conn.Write(request.Payload)
+	actual, err = provider.conn.Write(request.Payload)
 	if err != nil {
 		return err
 	}
-	if n != len(request.Payload) {
-		return fmt.Errorf("expected %d bytes but got %d", len(headerBuffer), n)
+	if expected := len(request.Payload); expected != actual {
+		return fmt.Errorf("expected %d bytes but got %d", expected, actual)
 	}
 	return nil
 }

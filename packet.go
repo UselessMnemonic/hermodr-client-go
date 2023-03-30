@@ -23,7 +23,13 @@ type NetStats struct {
 	InByteSec     float32
 }
 
-func ParseNetStats(buffer []byte) NetStats {
+func ParseString(buffer []byte) (string, []byte) {
+	nameLength := binary.BigEndian.Uint32(buffer[0:4])
+	nameData := buffer[4 : nameLength+4]
+	return string(nameData), buffer[nameLength+4:]
+}
+
+func ParseNetStats(buffer []byte) (NetStats, []byte) {
 	stats := NetStats{
 		LocalQuality:  math.Float32frombits(binary.BigEndian.Uint32(buffer[0:4])),
 		RemoteQuality: math.Float32frombits(binary.BigEndian.Uint32(buffer[4:8])),
@@ -31,19 +37,17 @@ func ParseNetStats(buffer []byte) NetStats {
 		OutByteSec:    math.Float32frombits(binary.BigEndian.Uint32(buffer[12:16])),
 		InByteSec:     math.Float32frombits(binary.BigEndian.Uint32(buffer[16:20])),
 	}
-	return stats
+	return stats, buffer[20:]
 }
 
-func ParsePlayerList(buffer []byte) []PlayerInfo {
+func ParsePlayerList(buffer []byte) ([]PlayerInfo, []byte) {
 	count := int(binary.BigEndian.Uint32(buffer[0:4]))
 	result := make([]PlayerInfo, count)
 
 	buffer = buffer[4:]
 	for i := range result {
 		next := &result[i]
-		nameCount := int(binary.BigEndian.Uint32(buffer[0:4]))
-		next.Name = string(buffer[4 : nameCount+4])
-		buffer = buffer[nameCount+4:]
+		next.Name, buffer = ParseString(buffer)
 	}
-	return result
+	return result, buffer
 }

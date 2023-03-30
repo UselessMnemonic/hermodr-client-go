@@ -35,12 +35,6 @@ var StartTimeRequest = Packet{
 
 var container = NewStatusContainer()
 
-func parseString(buffer []byte) (string, []byte) {
-	nameLength := binary.BigEndian.Uint32(buffer[0:4])
-	nameData := buffer[4 : nameLength+4]
-	return string(nameData), buffer[nameLength+8:]
-}
-
 func periodicRequestLoop(requests chan<- Packet, ctx context.Context) {
 	timer := time.NewTicker(5 * time.Second)
 	defer timer.Stop()
@@ -58,6 +52,7 @@ func periodicRequestLoop(requests chan<- Packet, ctx context.Context) {
 }
 
 func statusUpdaterLoop(responses <-chan Packet, ctx context.Context) {
+	var remainingPayload []byte
 	for {
 		select {
 		case <-ctx.Done():
@@ -65,23 +60,31 @@ func statusUpdaterLoop(responses <-chan Packet, ctx context.Context) {
 		case r := <-responses:
 			switch r.Op {
 			case 1:
-				v := ParsePlayerList(r.Payload)
+				var v []PlayerInfo
+				v, remainingPayload = ParsePlayerList(r.Payload)
 				container.setPlayerList(v)
 				break
 			case 2:
-				v, _ := parseString(r.Payload)
+				var v string
+				v, remainingPayload = ParseString(r.Payload)
 				container.setWorldName(v)
 				break
 			case 3:
-				v := ParseNetStats(r.Payload)
+				var v NetStats
+				v, remainingPayload = ParseNetStats(r.Payload)
 				container.setNetStats(v)
 				break
 			case 4:
-				v := binary.BigEndian.Uint64(r.Payload)
+				var v uint64
+				v = binary.BigEndian.Uint64(r.Payload)
+				remainingPayload = r.Payload[8:]
 				container.startUnix.Store(int64(v))
 				break
 			}
 			container.updateStatusText()
+		}
+		if rem := len(remainingPayload); rem > 0 {
+			fmt.Printf("%d bytes remaining in payload!!!", rem)
 		}
 	}
 }
@@ -112,11 +115,11 @@ func updateLoop(ctx context.Context) {
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		container.setStatus("Starting")
-		container.updateStatusText()
 		fmt.Println("dialing gamer server...")
 		client, err := DialHermodr(":2458")
 		if err != nil {
+			container.setStatus("Starting")
+			container.updateStatusText()
 			fmt.Printf("error while dialing game server: %e\n", err)
 			time.Sleep(5 * time.Second)
 			continue
