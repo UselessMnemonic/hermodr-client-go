@@ -101,23 +101,28 @@ func updateLoop(ctx context.Context) {
 		fmt.Println("searching for game process")
 		proc, err := findValheimProcess()
 		if err != nil {
+			container.setStatus("Unknown")
+			container.updateStatusText()
 			fmt.Printf("error while enumerating processes: %e\n", err)
 		}
 		if proc == nil {
 			container.setStatus("Stopped")
+			container.updateStatusText()
 			fmt.Println("game server not found")
 			time.Sleep(5 * time.Second)
 			continue
 		}
+		container.setStatus("Starting")
+		container.updateStatusText()
 		fmt.Println("dialing gamer server...")
 		client, err := DialHermodr(":2458")
 		if err != nil {
-			container.setStatus("Unknown")
 			fmt.Printf("error while dialing game server: %e\n", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
 		container.setStatus("Running")
+		container.updateStatusText()
 		innerCtx, innerCancel := context.WithCancel(ctx)
 		go periodicRequestLoop(requests, innerCtx)
 		go statusUpdaterLoop(responses, innerCtx)
