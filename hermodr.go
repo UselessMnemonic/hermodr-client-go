@@ -36,9 +36,9 @@ func (provider *HermodrClient) Receive() (Packet, error) {
 	}
 
 	response := Packet{}
-	response.Id = int32(binary.BigEndian.Uint32(headerBuffer[0:3]))
-	response.Op = int32(binary.BigEndian.Uint32(headerBuffer[4:7]))
-	payloadLen := int32(binary.BigEndian.Uint32(headerBuffer[8:11]))
+	response.Id = int32(binary.BigEndian.Uint32(headerBuffer[0:4]))
+	response.Op = int32(binary.BigEndian.Uint32(headerBuffer[4:8]))
+	payloadLen := int32(binary.BigEndian.Uint32(headerBuffer[8:12]))
 	response.Payload = make([]byte, payloadLen)
 	n, err = io.ReadFull(provider.conn, response.Payload)
 	if err != nil {
@@ -52,9 +52,9 @@ func (provider *HermodrClient) Receive() (Packet, error) {
 
 func (provider *HermodrClient) Send(request Packet) error {
 	headerBuffer := [12]byte{}
-	binary.BigEndian.PutUint32(headerBuffer[0:3], uint32(request.Id))
-	binary.BigEndian.PutUint32(headerBuffer[4:7], uint32(request.Op))
-	binary.BigEndian.PutUint32(headerBuffer[8:11], uint32(len(request.Payload)))
+	binary.BigEndian.PutUint32(headerBuffer[0:4], uint32(request.Id))
+	binary.BigEndian.PutUint32(headerBuffer[4:8], uint32(request.Op))
+	binary.BigEndian.PutUint32(headerBuffer[8:12], uint32(len(request.Payload)))
 	n, err := provider.conn.Write(headerBuffer[:])
 	if err != nil {
 		return err

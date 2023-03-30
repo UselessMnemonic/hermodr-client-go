@@ -36,7 +36,7 @@ var StartTimeRequest = Packet{
 var container = NewStatusContainer()
 
 func parseString(buffer []byte) (string, []byte) {
-	nameLength := binary.BigEndian.Uint32(buffer[0:3])
+	nameLength := binary.BigEndian.Uint32(buffer[0:4])
 	nameData := buffer[4 : nameLength+4]
 	return string(nameData), buffer[nameLength+8:]
 }
