@@ -104,17 +104,20 @@ func updateLoop(ctx context.Context) {
 			fmt.Printf("error while enumerating processes: %e\n", err)
 		}
 		if proc == nil {
-			fmt.Println("game server not found, try again in 5 seconds")
+			container.setStatus("Stopped")
+			fmt.Println("game server not found")
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		fmt.Println("dialing gamer server...")
+		client, err := DialHermodr(":2458")
+		if err != nil {
+			container.setStatus("Unknown")
+			fmt.Printf("error while dialing game server: %e\n", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
 		container.setStatus("Running")
-		fmt.Println("dialing gamer server...")
-		client, err := DialHermodr(":2458")
-		if err != nil {
-			fmt.Printf("error while dialing game server: %e\n", err)
-			continue
-		}
 		innerCtx, innerCancel := context.WithCancel(ctx)
 		go periodicRequestLoop(requests, innerCtx)
 		go statusUpdaterLoop(responses, innerCtx)
