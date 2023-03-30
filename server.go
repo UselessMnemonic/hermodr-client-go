@@ -91,13 +91,17 @@ func updateLoop(ctx context.Context) {
 	responses := make(chan Packet, 5)
 	join := make(chan empty, 2)
 	for {
-		if _, isDone := <-ctx.Done(); isDone {
+		select {
+		case <-ctx.Done():
 			fmt.Println("updates canceled, have a nice day")
 			return
+		default:
+			break
 		}
+		fmt.Println("searching for game process")
 		proc, err := findValheimProcess()
-		if err == nil {
-			fmt.Printf("error while enumerating processes: %e", err)
+		if err != nil {
+			fmt.Printf("error while enumerating processes: %e\n", err)
 		}
 		if proc == nil {
 			fmt.Println("game server not found, try again in 5 seconds")
@@ -105,6 +109,7 @@ func updateLoop(ctx context.Context) {
 			continue
 		}
 		container.setStatus("Running")
+		fmt.Println("dialing gamer server...")
 		client, err := DialHermodr(":2458")
 		if err != nil {
 			fmt.Printf("error while dialing game server: %e\n", err)
@@ -160,6 +165,8 @@ func main() {
 		Handler: router,
 	}
 
+	fmt.Println("starting server...")
 	go updateLoop(ctx)
-	_ = server.ListenAndServe()
+	err := server.ListenAndServe()
+	fmt.Printf("main done: %e\n", err)
 }
