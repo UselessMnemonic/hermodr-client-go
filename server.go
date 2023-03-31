@@ -169,7 +169,7 @@ func main() {
 	defer cancel()
 	router := http.NewServeMux()
 
-        index_target, ok := os.LookupEnv("INDEX_TARGET")
+        index_target, ok := os.LookupEnv("index_target")
         if ok {
 	    handleRedirect := http.RedirectHandler(INDEX_TARGET, http.StatusSeeOther)
 	    router.Handle("/", handleRedirect)
