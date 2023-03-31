@@ -167,10 +167,13 @@ func handleStatus(writer http.ResponseWriter, _ *http.Request) {
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
 	router := http.NewServeMux()
-	handleRedirect := http.RedirectHandler("https://status.uselessmnemonic.com", http.StatusSeeOther)
-	router.Handle("/", handleRedirect)
+
+        index_target, ok := os.LookupEnv("INDEX_TARGET")
+        if ok {
+	    handleRedirect := http.RedirectHandler(INDEX_TARGET, http.StatusSeeOther)
+	    router.Handle("/", handleRedirect)
+        }
 	router.HandleFunc("/status", handleStatus)
 
 	policy := cors.New(cors.Options{
