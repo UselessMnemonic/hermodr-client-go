@@ -107,11 +107,11 @@ func (r *StatusContainer) updateStatusText() {
 			&GameStatusTableSection{
 				Name:       "World Stats",
 				IsVertical: true,
-				Columns: map[string]any{
-					"World Name":        worldName,
-					"Ping":              netStats.Ping,
-					"Input (Byte/sec)":  netStats.InByteSec,
-					"Output (Byte/sec)": netStats.OutByteSec,
+				Columns: map[string][]any{
+					"World Name":        {worldName},
+					"Ping":              {netStats.Ping},
+					"Input (Byte/sec)":  {netStats.InByteSec},
+					"Output (Byte/sec)": {netStats.OutByteSec},
 				},
 			},
 			&GameStatusListSection{
@@ -143,7 +143,7 @@ type GameStatusSection interface {
 type GameStatusTableSection struct {
 	Name       string
 	IsVertical bool
-	Columns    map[string]any
+	Columns    map[string][]any
 }
 
 func (s *GameStatusTableSection) GetName() string {
