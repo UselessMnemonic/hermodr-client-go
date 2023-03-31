@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"github.com/rs/cors"
 	"log"
 	"net/http"
 	"time"
@@ -171,9 +172,12 @@ func main() {
 	router.Handle("/", handleRedirect)
 	router.HandleFunc("/status", handleStatus)
 
+	policy := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+	})
 	server := &http.Server{
 		Addr:    ":80",
-		Handler: router,
+		Handler: policy.Handler(router),
 	}
 
 	fmt.Println("starting server...")
