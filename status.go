@@ -41,7 +41,7 @@ func NewStatusContainer() (r StatusContainer) {
 	r.worldName = "..."
 	r.status = "Unknown"
 	r.playerList = make([]PlayerInfo, 0)
-	r.updateStatusText()
+	r.updateStatusText(false)
 	return
 }
 
@@ -93,34 +93,38 @@ func (r *StatusContainer) GetStatus() string {
 	return r.status
 }
 
-func (r *StatusContainer) updateStatusText() {
+func (r *StatusContainer) updateStatusText(valid bool) {
 	worldName := r.GetWorldName()
 	netStats := r.GetNetStats()
 	playerList := r.GetPlayerList()
+	status := r.GetStatus()
 	jsonStruct := GameStatus{
-		GameID:  "valheim",
-		Label:   "Plant Parenthood",
-		Url:     "valheim.uselessmnemonic.com",
-		Started: r.startUnix.Load(),
-		Status:  r.status,
-		Sections: []GameStatusSection{
-			&GameStatusTableSection{
-				Name:       "World Stats",
-				IsVertical: true,
-				Columns: map[string][]any{
-					"World Name":        {worldName},
-					"Ping":              {netStats.Ping},
-					"Input (Byte/sec)":  {netStats.InByteSec},
-					"Output (Byte/sec)": {netStats.OutByteSec},
+		Started: 0,
+		Status:  status,
+	}
+	if valid {
+		jsonStruct = GameStatus{
+			Started: r.startUnix.Load(),
+			Status:  status,
+			Sections: []GameStatusSection{
+				&GameStatusTableSection{
+					Name:       "World Stats",
+					IsVertical: true,
+					Columns: map[string][]any{
+						"World Name":        {worldName},
+						"Ping":              {netStats.Ping},
+						"Input (Byte/sec)":  {netStats.InByteSec},
+						"Output (Byte/sec)": {netStats.OutByteSec},
+					},
+				},
+				&GameStatusListSection{
+					Name: "Players",
+					Items: mapElements(playerList, func(x PlayerInfo) any {
+						return x.Name
+					}),
 				},
 			},
-			&GameStatusListSection{
-				Name: "Players",
-				Items: mapElements(playerList, func(x PlayerInfo) any {
-					return x.Name
-				}),
-			},
-		},
+		}
 	}
 	text, _ := json.Marshal(jsonStruct)
 	r.jsonLock.Lock()
@@ -185,10 +189,7 @@ func (s *GameStatusListSection) MarshalJSON() ([]byte, error) {
 }
 
 type GameStatus struct {
-	GameID   string              `json:"gameId"`
-	Label    string              `json:"label"`
 	Status   string              `json:"status"`
 	Started  int64               `json:"started"`
-	Url      string              `json:"url"`
 	Sections []GameStatusSection `json:"sections"`
 }

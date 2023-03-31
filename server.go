@@ -83,7 +83,7 @@ func statusUpdaterLoop(responses <-chan Packet, ctx context.Context) {
 				container.startUnix.Store(int64(v))
 				break
 			}
-			container.updateStatusText()
+			container.updateStatusText(true)
 		}
 		if rem := len(remainingPayload); rem > 0 {
 			fmt.Printf("%d bytes remaining in payload!!!", rem)
@@ -107,12 +107,12 @@ func updateLoop(ctx context.Context) {
 		proc, err := findValheimProcess()
 		if err != nil {
 			container.setStatus("Unknown")
-			container.updateStatusText()
+			container.updateStatusText(false)
 			fmt.Printf("error while enumerating processes: %e\n", err)
 		}
 		if proc == nil {
 			container.setStatus("Stopped")
-			container.updateStatusText()
+			container.updateStatusText(false)
 			fmt.Println("game server not found")
 			time.Sleep(5 * time.Second)
 			continue
@@ -121,13 +121,13 @@ func updateLoop(ctx context.Context) {
 		client, err := DialHermodr(":2458")
 		if err != nil {
 			container.setStatus("Starting")
-			container.updateStatusText()
+			container.updateStatusText(false)
 			fmt.Printf("error while dialing game server: %e\n", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
 		container.setStatus("Running")
-		container.updateStatusText()
+		container.updateStatusText(false)
 		innerCtx, innerCancel := context.WithCancel(ctx)
 		go periodicRequestLoop(requests, innerCtx)
 		go statusUpdaterLoop(responses, innerCtx)
