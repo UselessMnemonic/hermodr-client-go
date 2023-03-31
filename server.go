@@ -2,12 +2,9 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 	"github.com/rs/cors"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -179,30 +176,22 @@ func main() {
 	policy := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 	})
-	certs := x509.NewCertPool()
-	path := os.Getenv("CERT_PATH")
-	awsCert, err := os.Open(path)
-	if err != nil {
-		fmt.Printf("certificate required for TLS")
-		return
-	}
-	pemData, err := io.ReadAll(awsCert)
-	_ = awsCert.Close()
-	if err != nil {
-		fmt.Printf("error reading certificate: %e", err)
-		return
-	}
-	certs.AppendCertsFromPEM(pemData)
 	server := &http.Server{
-		Addr:    ":80",
+		Addr:    ":443",
 		Handler: policy.Handler(router),
-		TLSConfig: &tls.Config{
-			RootCAs: certs,
-		},
+	}
+
+	fullCert, ok := os.LookupEnv("FULL_CERT_PATH")
+	if !ok {
+		fmt.Printf("full cert path not specified")
+	}
+	privKey, ok := os.LookupEnv("PRIV_KEY_PATH")
+	if !ok {
+		fmt.Printf("private key path not specified")
 	}
 
 	fmt.Println("starting server...")
 	go updateLoop(ctx)
-	err = server.ListenAndServe()
+	err := server.ListenAndServeTLS(fullCert, privKey)
 	fmt.Printf("main done: %e\n", err)
 }
