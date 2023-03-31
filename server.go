@@ -44,11 +44,11 @@ func periodicRequestLoop(requests chan<- Packet, ctx context.Context) {
 	requests <- StartTimeRequest
 	for {
 		select {
+		case <-ctx.Done():
+			break
 		case <-timer.C:
 			requests <- PlayerListRequest
 			requests <- NetStatsRequest
-		case <-ctx.Done():
-			break
 		}
 	}
 }
@@ -101,61 +101,62 @@ func updateLoop(ctx context.Context) {
 			fmt.Println("updates canceled, have a nice day")
 			return
 		default:
-			break
-		}
-		fmt.Println("searching for game process")
-		proc, err := findValheimProcess()
-		if err != nil {
-			container.setStatus("Unknown")
-			container.updateStatusText(false)
-			fmt.Printf("error while enumerating processes: %e\n", err)
-		}
-		if proc == nil {
-			container.setStatus("Stopped")
-			container.updateStatusText(false)
-			fmt.Println("game server not found")
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		fmt.Println("dialing gamer server...")
-		client, err := DialHermodr(":2458")
-		if err != nil {
-			container.setStatus("Starting")
-			container.updateStatusText(false)
-			fmt.Printf("error while dialing game server: %e\n", err)
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		container.setStatus("Running")
-		container.updateStatusText(false)
-		innerCtx, innerCancel := context.WithCancel(ctx)
-		go periodicRequestLoop(requests, innerCtx)
-		go statusUpdaterLoop(responses, innerCtx)
-		go func() {
-			for {
-				pkt, err := client.Receive()
-				if err != nil {
-					join <- empty{}
-					return
-				}
-				responses <- pkt
+			fmt.Println("searching for game process")
+			proc, err := findValheimProcess()
+			if err != nil {
+				container.setStatus("Unknown")
+				container.updateStatusText(false)
+				fmt.Printf("error while enumerating processes: %e\n", err)
+				time.Sleep(5 * time.Second)
 			}
-		}()
-		go func() {
-			for {
-				pkt := <-requests
-				err := client.Send(pkt)
-				if err != nil {
-					join <- empty{}
-					return
-				}
+			if proc == nil {
+				container.setStatus("Stopped")
+				container.updateStatusText(false)
+				fmt.Println("game server not found")
+				time.Sleep(5 * time.Second)
+				continue
 			}
-		}()
-		<-join
-		<-join
-		log.Println("client disconnected")
-		innerCancel()
-		_ = client.Close()
+			fmt.Println("dialing game server...")
+			client, err := DialHermodr(":2458")
+			if err != nil {
+				container.setStatus("Starting")
+				container.updateStatusText(false)
+				fmt.Printf("error while dialing game server: %e\n", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+			container.setStatus("Running")
+			container.updateStatusText(false)
+			innerCtx, innerCancel := context.WithCancel(ctx)
+			go periodicRequestLoop(requests, innerCtx)
+			go statusUpdaterLoop(responses, innerCtx)
+			go func() {
+				for {
+					pkt, err := client.Receive()
+					if err != nil {
+						join <- empty{}
+						return
+					}
+					responses <- pkt
+				}
+			}()
+			go func() {
+				for {
+					pkt := <-requests
+					err := client.Send(pkt)
+					if err != nil {
+						join <- empty{}
+						return
+					}
+				}
+			}()
+			<-join
+			<-join
+			log.Println("client disconnected")
+			innerCancel()
+			_ = client.Close()
+			time.Sleep(5 * time.Second)
+		}
 	}
 }
 
@@ -165,15 +166,24 @@ func handleStatus(writer http.ResponseWriter, _ *http.Request) {
 }
 
 func main() {
+	fullCert, ok := os.LookupEnv("FULL_CERT_PATH")
+	if !ok {
+		fmt.Printf("full cert path not specified")
+	}
+
+	privKey, ok := os.LookupEnv("PRIV_KEY_PATH")
+	if !ok {
+		fmt.Printf("private key path not specified")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	router := http.NewServeMux()
 
-        index_target, ok := os.LookupEnv("index_target")
-        if ok {
-	    handleRedirect := http.RedirectHandler(INDEX_TARGET, http.StatusSeeOther)
-	    router.Handle("/", handleRedirect)
-        }
+	if indexTarget, ok := os.LookupEnv("INDEX_TARGET"); ok {
+		handleRedirect := http.RedirectHandler(indexTarget, http.StatusSeeOther)
+		router.Handle("/", handleRedirect)
+	}
 	router.HandleFunc("/status", handleStatus)
 
 	policy := cors.New(cors.Options{
@@ -182,15 +192,6 @@ func main() {
 	server := &http.Server{
 		Addr:    ":443",
 		Handler: policy.Handler(router),
-	}
-
-	fullCert, ok := os.LookupEnv("FULL_CERT_PATH")
-	if !ok {
-		fmt.Printf("full cert path not specified")
-	}
-	privKey, ok := os.LookupEnv("PRIV_KEY_PATH")
-	if !ok {
-		fmt.Printf("private key path not specified")
 	}
 
 	fmt.Println("starting server...")
